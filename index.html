@@ -1,0 +1,427 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Thailand Fire Monitoring | EOG VIIRS</title>
+
+<style>
+:root {
+  --vnf: #E8480A;
+  --vbd: #1565C0;
+  --bg: #F6F8FA;
+  --card: #FFFFFF;
+  --border: #D0D7DE;
+  --text: #1F2328;
+  --muted: #656D76;
+  --sidebar-w: 290px;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; background: var(--bg); color: var(--text); height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
+
+.hdr { background: #0D1117; color: #E6EDF3; padding: 0 1.25rem; height: 56px; display: flex; align-items: center; justify-content: space-between; flex-shrink: 0; border-bottom: 1px solid #30363D; }
+.hdr-left { display: flex; align-items: center; gap: 0.75rem; }
+.hdr-title { font-size: 1rem; font-weight: 600; }
+.hdr-sub { font-size: 0.72rem; color: #7D8590; margin-top: 1px; }
+.hdr-link { font-size: 0.72rem; padding: 0.2rem 0.6rem; border-radius: 20px; border: 1px solid #30363D; color: #7D8590; text-decoration: none; }
+.hdr-link:hover { color: #E6EDF3; border-color: #7D8590; }
+
+.type-bar { background: #161B22; border-bottom: 1px solid #30363D; display: flex; align-items: center; flex-shrink: 0; }
+.type-tab { padding: 0.65rem 1.4rem; font-size: 0.875rem; cursor: pointer; color: #7D8590; border-bottom: 2px solid transparent; transition: all 0.15s; display: flex; align-items: center; gap: 0.5rem; user-select: none; }
+.type-tab:hover { color: #E6EDF3; background: #21262D; }
+.type-tab.active[data-type="VNF"] { color: var(--vnf); border-color: var(--vnf); }
+.type-tab.active[data-type="VBD"] { color: var(--vbd); border-color: var(--vbd); }
+.type-pill { font-size: 0.65rem; padding: 0.1rem 0.45rem; border-radius: 10px; background: #30363D; color: #8B949E; }
+.type-tab.active[data-type="VNF"] .type-pill { background: rgba(232,72,10,0.2); color: var(--vnf); }
+.type-tab.active[data-type="VBD"] .type-pill { background: rgba(21,101,192,0.2); color: var(--vbd); }
+.type-desc-bar { margin-left: auto; padding-right: 1.25rem; font-size: 0.72rem; color: #7D8590; max-width: 420px; text-align: right; }
+
+.body { display: flex; flex: 1; overflow: hidden; }
+
+.sidebar { width: var(--sidebar-w); background: var(--card); border-right: 1px solid var(--border); display: flex; flex-direction: column; flex-shrink: 0; overflow: hidden; }
+.sb-top { padding: 0.75rem; border-bottom: 1px solid var(--border); flex-shrink: 0; }
+.sb-input { width: 100%; padding: 0.45rem 0.7rem 0.45rem 2rem; border: 1px solid var(--border); border-radius: 6px; font-size: 0.8rem; background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%23656D76' stroke-width='2'%3E%3Ccircle cx='11' cy='11' r='8'/%3E%3Cpath d='m21 21-4.35-4.35'/%3E%3C/svg%3E") no-repeat 0.5rem center; outline: none; color: var(--text); }
+.sb-input:focus { border-color: #0969DA; box-shadow: 0 0 0 3px rgba(9,105,218,0.1); }
+.sb-scroll { overflow-y: auto; flex: 1; }
+.month-label { padding: 0.4rem 0.85rem; font-size: 0.68rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); background: var(--bg); border-bottom: 1px solid var(--border); position: sticky; top: 0; z-index: 1; }
+.date-row { padding: 0.55rem 0.85rem; cursor: pointer; border-bottom: 1px solid #F0F0F0; display: flex; justify-content: space-between; align-items: center; font-size: 0.82rem; transition: background 0.1s; }
+.date-row:hover { background: #F6F8FA; }
+.date-row.active { background: #FFF5F0; }
+.date-row.active[data-type="VBD"] { background: #EEF4FF; }
+.date-day { font-weight: 500; }
+.date-sub { font-size: 0.7rem; color: var(--muted); margin-top: 1px; }
+.chip { font-size: 0.68rem; padding: 0.15rem 0.45rem; border-radius: 10px; background: #EAEEF2; color: var(--muted); }
+.date-row.active .chip { background: rgba(232,72,10,0.15); color: var(--vnf); }
+.date-row.active[data-type="VBD"] .chip { background: rgba(21,101,192,0.15); color: var(--vbd); }
+
+.main { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+.main-hdr { background: var(--card); border-bottom: 1px solid var(--border); padding: 1rem 1.25rem 0; flex-shrink: 0; }
+.main-title { font-size: 1.05rem; font-weight: 600; }
+.main-sub { font-size: 0.78rem; color: var(--muted); margin-top: 2px; margin-bottom: 0.75rem; }
+.view-tabs { display: flex; }
+.view-tab { padding: 0.45rem 1rem; font-size: 0.82rem; cursor: pointer; color: var(--muted); border-bottom: 2px solid transparent; }
+.view-tab:hover { color: var(--text); }
+.view-tab.active { color: var(--text); border-color: var(--text); font-weight: 500; }
+
+.stats-bar { display: flex; background: var(--card); border-bottom: 1px solid var(--border); flex-shrink: 0; }
+.stat { padding: 0.6rem 1.25rem; border-right: 1px solid var(--border); }
+.stat-val { font-size: 1.1rem; font-weight: 700; }
+.stat-lbl { font-size: 0.65rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; }
+.stat-val.vnf { color: var(--vnf); }
+.stat-val.vbd { color: var(--vbd); }
+
+.panel-wrap { flex: 1; overflow: hidden; position: relative; }
+.panel { position: absolute; inset: 0; overflow-y: auto; padding: 1.25rem; display: none; }
+.panel.active { display: block; }
+
+.files-grid { display: flex; flex-direction: column; gap: 0.5rem; }
+.file-card { background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 0.85rem 1rem; display: flex; align-items: center; gap: 0.75rem; transition: box-shadow 0.15s; }
+.file-card:hover { box-shadow: 0 2px 8px rgba(0,0,0,0.06); }
+.file-icon { font-size: 1.4rem; flex-shrink: 0; }
+.file-info { flex: 1; min-width: 0; }
+.file-name { font-size: 0.875rem; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.file-meta { font-size: 0.72rem; color: var(--muted); margin-top: 2px; }
+.file-actions { display: flex; gap: 0.4rem; flex-shrink: 0; }
+.btn { padding: 0.3rem 0.7rem; border-radius: 6px; font-size: 0.78rem; cursor: pointer; text-decoration: none; display: inline-flex; align-items: center; gap: 0.3rem; border: 1px solid; white-space: nowrap; transition: all 0.15s; }
+.btn-dl { background: #0969DA; color: white; border-color: #0969DA; }
+.btn-dl:hover { background: #0860CA; }
+.btn-view { background: white; color: #0969DA; border-color: #D0D7DE; }
+.btn-view:hover { border-color: #0969DA; }
+.btn-sm { background: white; color: var(--text); border-color: #D0D7DE; }
+.btn-sm:hover { background: #F6F8FA; }
+
+
+.legend-dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; vertical-align: middle; margin-right: 3px; }
+code { background: #F6F8FA; border: 1px solid var(--border); border-radius: 4px; padding: 0.05rem 0.3rem; font-size: 0.72rem; }
+
+.tbl-bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.6rem; font-size: 0.78rem; color: var(--muted); }
+.tbl-wrap { border: 1px solid var(--border); border-radius: 8px; overflow: auto; max-height: calc(100vh - 280px); }
+table { width: 100%; border-collapse: collapse; font-size: 0.76rem; }
+thead { position: sticky; top: 0; z-index: 1; }
+th { background: #F6F8FA; padding: 0.4rem 0.75rem; text-align: left; font-weight: 600; border-bottom: 2px solid var(--border); white-space: nowrap; font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.03em; color: var(--muted); cursor: pointer; user-select: none; }
+th:hover { background: #EAEEF2; color: var(--text); }
+th.asc::after { content: ' ↑'; } th.desc::after { content: ' ↓'; }
+td { padding: 0.3rem 0.75rem; border-bottom: 1px solid #F0F0F0; white-space: nowrap; font-family: 'SF Mono','Fira Code',monospace; font-size: 0.73rem; }
+tr:last-child td { border-bottom: none; }
+tr:hover td { background: #F6F8FA; }
+
+.empty { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; color: var(--muted); text-align: center; gap: 0.75rem; }
+.empty-icon { font-size: 3rem; opacity: 0.4; }
+.spinner { width: 20px; height: 20px; border: 2px solid var(--border); border-top-color: #0969DA; border-radius: 50%; animation: spin 0.75s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.load-row { display: flex; align-items: center; gap: 0.5rem; padding: 2rem; color: var(--muted); font-size: 0.85rem; justify-content: center; }
+.err { padding: 1rem; background: #FFF0F0; border: 1px solid #FECACA; border-radius: 8px; color: #B91C1C; font-size: 0.85rem; }
+
+@media (max-width: 680px) { .sidebar, .type-desc-bar { display: none; } }
+</style>
+</head>
+<body>
+
+<div class="hdr">
+  <div class="hdr-left">
+    <span style="font-size:1.5rem">🛰️</span>
+    <div>
+      <div class="hdr-title">Thailand Fire Monitoring — EOG VIIRS</div>
+      <div class="hdr-sub">Earth Observation Group, Colorado School of Mines · Auto-updated from satellite alerts</div>
+    </div>
+  </div>
+  <a class="hdr-link" href="https://github.com/racorus/EOG-Product-Thailand" target="_blank">📂 GitHub</a>
+</div>
+
+<div class="type-bar">
+  <div class="type-tab active" data-type="VNF" onclick="switchType('VNF')">
+    🔥 VNF <span class="type-pill">NightFire</span>
+  </div>
+  <div class="type-tab" data-type="VBD" onclick="switchType('VBD')">
+    🌊 VBD <span class="type-pill">Boat Detections</span>
+  </div>
+  <div class="type-desc-bar" id="typeDesc">
+    VIIRS NightFire · Thermal anomalies &amp; active fire in Thailand National Parks (nighttime SWIR/LWIR)
+  </div>
+</div>
+
+<div class="body">
+
+  <div class="sidebar">
+    <div class="sb-top">
+      <input class="sb-input" id="searchInput" type="text" placeholder="Filter dates (e.g. 2026-04)…" oninput="onSearch()">
+    </div>
+    <div class="sb-scroll" id="dateList">
+      <div class="load-row"><div class="spinner"></div>Loading…</div>
+    </div>
+  </div>
+
+  <div class="main">
+    <div id="emptyState" style="flex:1;display:flex">
+      <div class="empty" style="flex:1">
+        <div class="empty-icon">📡</div>
+        <p style="font-size:0.9rem">Select a date from the sidebar</p>
+        <span style="font-size:0.75rem">Updated every ~12 hours from EOG satellite alert emails</span>
+      </div>
+    </div>
+
+    <div id="cWrap" style="display:none;flex-direction:column;flex:1;overflow:hidden">
+      <div class="main-hdr">
+        <div class="main-title" id="mTitle">—</div>
+        <div class="main-sub"  id="mSub">—</div>
+        <div class="view-tabs">
+          <div class="view-tab active" onclick="switchView('files')">📁 Files</div>
+          
+          <div class="view-tab" onclick="switchView('table')">📊 Data Table</div>
+        </div>
+      </div>
+      <div class="stats-bar">
+        <div class="stat"><div class="stat-val" id="sv-f">—</div><div class="stat-lbl">Files</div></div>
+        <div class="stat"><div class="stat-val" id="sv-d">—</div><div class="stat-lbl">Detections</div></div>
+        <div class="stat"><div class="stat-val" id="sv-dt">—</div><div class="stat-lbl">Date</div></div>
+        <div class="stat"><div class="stat-val" id="sv-s">—</div><div class="stat-lbl">Satellite</div></div>
+      </div>
+      <div class="panel-wrap">
+        <div class="panel active" id="panel-files"><div class="files-grid" id="filesList"></div></div>
+        
+        <div class="panel" id="panel-table">
+          <div class="tbl-bar"><span id="tblInfo"></span><span style="font-size:0.72rem">Click column to sort</span></div>
+          <div class="tbl-wrap"><div id="tblEl"><div class="load-row"><div class="spinner"></div>Loading…</div></div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+
+<script>
+const OWNER = 'racorus', REPO = 'EOG-Product-Thailand', BRANCH = 'main';
+const API = `https://api.github.com/repos/${OWNER}/${REPO}`;
+const RAW = `https://raw.githubusercontent.com/${OWNER}/${REPO}/${BRANCH}`;
+
+const TYPE = {
+  VNF: { icon:'🔥', label:'VIIRS Nightfire Thailand National Park',
+         desc:'Detects thermal anomalies & active fire in Thailand National Parks using nighttime SWIR/LWIR',
+         color:'#E8480A' },
+  VBD: { icon:'🌊', label:'VIIRS Boat Detections — Thailand Region',
+         desc:'Detects boats and offshore infrastructure in the Thailand Region using VIIRS nighttime DNB imagery',
+         color:'#1565C0' }
+};
+
+// Column name candidates for lat/lon in EOG CSVs
+const LAT_COLS = ['Lat_DNB','lat_dnb','LAT_DNB','Lat','lat','Latitude','latitude'];
+const LON_COLS = ['Lon_DNB','lon_dnb','LON_DNB','Lon','lon','Longitude','longitude','Lng_DNB'];
+
+let curType = 'VNF', curDate = null, curFiles = [], search = '';
+// Map functionality removed
+let csvCache = {}, store = { VNF:{}, VBD:{}, legacy:{} };
+let sortCol = null, sortDir = 1;
+
+/* ─── BOOT ─────────────────────────────────────────────────── */
+async function boot() {
+  try {
+    const r = await fetch(`${API}/git/trees/${BRANCH}?recursive=1`);
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    const { tree } = await r.json();
+    for (const item of tree) {
+      if (item.type !== 'blob') continue;
+      let m = item.path.match(/^(VNF|VBD)\/(\d{4})\/(\d{2})\/(\d{2})\/([^/]+)$/i);
+      if (m) {
+        const [,T,y,mo,d,name] = m;
+        const date = `${y}-${mo}-${d}`;
+        let type = T.toUpperCase();
+        if (/vnf/i.test(name)) type = 'VNF';
+        else if (/vbd/i.test(name)) type = 'VBD';
+        (store[type][date] = store[type][date]||[]).push({path:item.path,name,size:item.size||0});
+        continue;
+      }
+      m = item.path.match(/^(\d{4})\/(\d{2})\/(\d{2})\/([^/]+)$/);
+      if (m) {
+        const [,y,mo,d,name] = m, date = `${y}-${mo}-${d}`;
+        (store.legacy[date] = store.legacy[date]||[]).push({path:item.path,name,size:item.size||0});
+      }
+    }
+    renderSidebar();
+  } catch(e) {
+    document.getElementById('dateList').innerHTML =
+      `<div style="padding:1rem"><div class="err">⚠️ Cannot load repo data.<br><small>${e.message}</small></div></div>`;
+  }
+}
+
+/* ─── SIDEBAR ──────────────────────────────────────────────── */
+function dmap() {
+  const m = {...store[curType]};
+  for (const [date,files] of Object.entries(store.legacy)) {
+    const rel = files.filter(f => curType==='VNF' ? /vnf/i.test(f.name) : /vbd/i.test(f.name));
+    if (rel.length) m[date] = [...(m[date]||[]), ...rel];
+  }
+  return m;
+}
+
+function renderSidebar() {
+  const dm = dmap();
+  const dates = Object.keys(dm).sort().reverse().filter(d => !search || d.includes(search));
+  if (!dates.length) { document.getElementById('dateList').innerHTML='<div class="load-row" style="color:var(--muted)">No dates found</div>'; return; }
+  const byM = {};
+  dates.forEach(d => (byM[d.slice(0,7)] = byM[d.slice(0,7)]||[]).push(d));
+  let html = '';
+  for (const [mo, days] of Object.entries(byM).sort().reverse()) {
+    const [y,m] = mo.split('-');
+    html += `<div class="month-label">${new Date(+y,+m-1).toLocaleString('en',{month:'long',year:'numeric'})}</div>`;
+    for (const d of days) {
+      const cnt = dm[d].length, wd = new Date(d+'T12:00:00').toLocaleString('en',{weekday:'short'});
+      html += `<div class="date-row ${d===curDate?'active':''}" data-type="${curType}" onclick="pick('${d}')">
+        <div><div class="date-day">${wd} ${d.slice(8)} <span style="color:var(--muted);font-weight:400">${d.slice(0,7)}</span></div>
+        <div class="date-sub">${cnt} file${cnt!==1?'s':''}</div></div>
+        <span class="chip">${cnt}</span></div>`;
+    }
+  }
+  document.getElementById('dateList').innerHTML = html;
+}
+
+/* ─── PICK DATE ─────────────────────────────────────────────── */
+async function pick(date) {
+  curDate = date; curFiles = dmap()[date]||[]; sortCol=null; sortDir=1;
+  document.getElementById('emptyState').style.display='none';
+  const cw=document.getElementById('cWrap'); cw.style.display='flex'; cw.style.flex='1'; cw.style.overflow='hidden';
+  const info = TYPE[curType];
+  document.getElementById('mTitle').textContent = `${info.icon} ${info.label} — ${date}`;
+  document.getElementById('mSub').textContent   = info.desc;
+  document.getElementById('sv-f').textContent   = curFiles.length;
+  document.getElementById('sv-dt').textContent  = date;
+  document.getElementById('sv-d').textContent   = '…';
+  document.getElementById('sv-s').textContent   = '…';
+  renderSidebar();
+  switchView('files');
+  renderFiles();
+  const csv = curFiles.find(f => f.name.toLowerCase().endsWith('.csv'));
+  if (csv) loadCSV(csv.path);
+}
+
+/* ─── FILES ─────────────────────────────────────────────────── */
+function renderFiles() {
+  const EICON = {csv:'📄',kmz:'🗺️',kml:'🗺️',png:'🖼️',jpg:'🖼️',zip:'📦'};
+  const ELBL  = {csv:'Detection data (CSV)',kmz:'Google Earth (KMZ)',kml:'KML',png:'Map image',jpg:'Image'};
+  const order = ['png','csv','kmz','kml','jpg'];
+  const sorted = [...curFiles].sort((a,b)=>(order.indexOf(a.name.split('.').pop().toLowerCase())+1||99)-(order.indexOf(b.name.split('.').pop().toLowerCase())+1||99));
+  let html='';
+  for (const f of sorted) {
+    const ext=f.name.split('.').pop().toLowerCase(), raw=`${RAW}/${f.path}`;
+    html += `<div class="file-card">
+      <span class="file-icon">${EICON[ext]||'📎'}</span>
+      <div class="file-info">
+        <div class="file-name">${f.name}</div>
+        <div class="file-meta">${ELBL[ext]||ext.toUpperCase()}${f.size?' · '+fmtB(f.size):''} · <a href="https://github.com/${OWNER}/${REPO}/blob/${BRANCH}/${f.path}" target="_blank" style="color:var(--muted)">GitHub ↗</a></div>
+      </div>
+      <div class="file-actions">
+        ${(ext==='png'||ext==='jpg')?`<a class="btn btn-view" href="${raw}" target="_blank">👁 View</a>`:''}
+        ${ext==='csv'?`<button class="btn btn-sm" onclick="switchView('table')">📊 Table</button>`:''}
+        <a class="btn btn-dl" href="${raw}" download="${f.name}">⬇ Download</a>
+      </div></div>`;
+  }
+  document.getElementById('filesList').innerHTML = html||'<div class="load-row" style="color:var(--muted)">No files</div>';
+}
+
+/* ─── CSV ───────────────────────────────────────────────────── */
+async function loadCSV(path) {
+  if (csvCache[path]) { applyCSV(csvCache[path]); return; }
+  try {
+    const r = await fetch(`${RAW}/${path}`);
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    const parsed = parseCSV(await r.text());
+    csvCache[path] = parsed;
+    applyCSV(parsed);
+  } catch(e) { console.error('CSV load:', e); }
+}
+
+function parseCSV(text) {
+  const lines = text.trim().split('\n');
+  if (!lines.length) return {headers:[],rows:[],total:0};
+  const split = line => {
+    const out=[]; let cur='',inQ=false;
+    for (const ch of line) {
+      if (ch==='"') inQ=!inQ;
+      else if (ch===','&&!inQ){out.push(cur.trim());cur='';}
+      else cur+=ch;
+    }
+    out.push(cur.trim()); return out;
+  };
+  const headers = split(lines[0]);
+  const rows=[];
+  for (let i=1;i<lines.length&&rows.length<2000;i++){
+    if(!lines[i].trim())continue;
+    const vals=split(lines[i]),row={};
+    headers.forEach((h,idx)=>row[h]=vals[idx]??'');
+    rows.push(row);
+  }
+  return {headers,rows,total:lines.length-1};
+}
+
+function findCol(headers, candidates) {
+  for (const c of candidates){const h=headers.find(h=>h===c);if(h)return h;}
+  for (const c of candidates){const h=headers.find(h=>h.toLowerCase()===c.toLowerCase());if(h)return h;}
+  return null;
+}
+
+function applyCSV(p) {
+  document.getElementById('sv-d').textContent = p.total.toLocaleString();
+  document.getElementById('sv-d').className   = `stat-val ${curType.toLowerCase()}`;
+  const satK = findCol(p.headers, ['Satellite', 'satellite', 'Sat', 'sat', 'sat_id', 'Platform', 'platform']);
+  document.getElementById('sv-s').textContent = (satK&&p.rows[0]?p.rows[0][satK]:null)||'VIIRS';
+  
+  if (document.getElementById('panel-table').classList.contains('active')) renderTable(p);
+}
+
+/* ─── MAP FUNCTIONALITY REMOVED ───────────────────────────────── */
+
+/* ─── TABLE ─────────────────────────────────────────────────── */
+function renderTable(p) {
+  if (!p||!p.rows.length){document.getElementById('tblEl').innerHTML='<div class="load-row" style="color:var(--muted)">No data</div>';return;}
+  let rows=[...p.rows];
+  if (sortCol) {
+    rows.sort((a,b)=>{
+      const av=parseFloat(a[sortCol]),bv=parseFloat(b[sortCol]);
+      if(!isNaN(av)&&!isNaN(bv))return(av-bv)*sortDir;
+      return(a[sortCol]||'').localeCompare(b[sortCol]||'')*sortDir;
+    });
+  }
+  const disp=rows.slice(0,300);
+  document.getElementById('tblInfo').textContent=`Showing ${disp.length.toLocaleString()} of ${p.total.toLocaleString()} rows`;
+  const ths=p.headers.map(h=>{
+    const cls=h===sortCol?(sortDir===1?'asc':'desc'):'';
+    return `<th class="${cls}" onclick="sortBy('${h}')">${h}</th>`;
+  }).join('');
+  let html=`<table><thead><tr>${ths}</tr></thead><tbody>`;
+  for (const row of disp) html+='<tr>'+p.headers.map(h=>`<td>${row[h]??''}</td>`).join('')+'</tr>';
+  html+='</tbody></table>';
+  document.getElementById('tblEl').innerHTML=html;
+}
+
+function sortBy(col){
+  sortDir = sortCol===col ? sortDir*-1 : 1; sortCol=col;
+  const csv=curFiles.find(f=>f.name.toLowerCase().endsWith('.csv'));
+  if (csv&&csvCache[csv.path]) renderTable(csvCache[csv.path]);
+}
+
+/* ─── VIEW / TYPE SWITCHING ─────────────────────────────────── */
+function switchView(name) {
+  document.querySelectorAll('.view-tab').forEach((t,i)=>t.classList.toggle('active',['files','table'][i]===name));
+  document.querySelectorAll('.panel').forEach(p=>p.classList.toggle('active',p.id===`panel-${name}`));
+  if (name==='table') {
+    const csv=curFiles.find(f=>f.name.toLowerCase().endsWith('.csv'));
+    if (csv&&csvCache[csv.path]) renderTable(csvCache[csv.path]);
+    else if (csv) loadCSV(csv.path).then(()=>{if(csvCache[csv.path])renderTable(csvCache[csv.path]);});
+  }
+}
+
+function switchType(type) {
+  curType=type; curDate=null; csvCache={}; sortCol=null; sortDir=1;
+  document.querySelectorAll('.type-tab').forEach(t=>t.classList.toggle('active',t.dataset.type===type));
+  document.getElementById('typeDesc').textContent = TYPE[type].desc;
+  document.getElementById('emptyState').style.display='flex';
+  document.getElementById('cWrap').style.display='none';
+  renderSidebar();
+}
+
+function onSearch(){search=document.getElementById('searchInput').value.trim().toLowerCase();renderSidebar();}
+function fmtB(b){return b<1024?`${b} B`:b<1048576?`${(b/1024).toFixed(1)} KB`:`${(b/1048576).toFixed(1)} MB`;}
+
+boot();
+</script>
+</body>
+</html>
